@@ -2,14 +2,11 @@ const express = require('express');
 const Razorpay = require('razorpay');
 const cors = require('cors');
 const fs = require('fs');
+const crypto = require('crypto');
+const axios = require('axios');
 const bodyParser = require('body-parser');
 require('dotenv').config(); 
-const axios = require('axios');// Load environment variables
-
-// Validate environment variables
-if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-  throw new Error('Razorpay key_id and key_secret must be set in .env file');
-}
+const db = require('./firebase'); 
 
 const app = express();
 app.use(cors());
@@ -32,60 +29,67 @@ app.post('/create-order', async (req, res) => {
 
   try {
     const options = {
-      amount: amount * 100, // Amount in smallest currency unit
+      amount: amount * 100, 
       currency,
       receipt,
     };
-
     const order = await razorpay.orders.create(options);
     res.status(200).json(order);
-    //if(payment successful)
-    //then call Credit report API
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Payment verification route (optional)
-app.post('/verify-payment', async (req, res) => {
-  const { order_id, payment_id, signature } = req.body;
+function toEpochTime() {
+  const dt = new Date(); // Current UTC time
+  return Math.floor(dt.getTime() / 1000); // Convert to epoch time in seconds
+}
 
+app.get('/fetch-credit-report', async (req, res) => {
   try {
-    const crypto = require('crypto');
-    const hash = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(`${order_id}|${payment_id}`)
-      .digest('hex');
-
-    if (hash === signature) {
-      res.status(200).json({ message: 'Payment verified successfully' });
-    } else {
-      res.status(400).json({ error: 'Invalid signature' });
-    }
-  } catch (error) {
-    res.status(500).json({ error: 'Error verifying payment' });
-  }
-});
-
-
-app.get('/get-credit-report', async (req, res) => {
-  try {
-    // API URL
     const apiUrl = 'https://eb964186-d3c2-48d5-95a4-895797265b4b.mock.pstmn.io/get';
+
+    const header = {
+      alg: "HS256",
+      typ: "JWT"
+    };
+  
+    const payload = {
+      timestamp: new Date().getTime(), 
+      // timestamp: 1724321625757,
+      partnerId: "CORP00001490",
+      reqid: toEpochTime(), 
+      // reqid: "168682"
+    };
+  
+    const secretKey = process.env.JSON_TOKEN_SECRET_KEY; // Use your key or replace
+  
+    // Encode header and payload
+    const encodedHeader = Buffer.from(JSON.stringify(header)).toString('base64').replace(/=/g, '');
+    const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64').replace(/=/g, '');
+  
+    // Generate the signature
+    const signatureInput = `${encodedHeader}.${encodedPayload}`;
+    const signature = crypto
+      .createHmac('sha256', secretKey)
+      .update(signatureInput)
+      .digest('base64')
+      .replace(/=/g, '');
+  
+    // Combine to form the JWT
+    const token = `${signatureInput}.${signature}`;
 
     // API headers
     const headers = {
-      token: "",
+      token: token,
       accept: 'application/json',
       authorisedkey: "",
       'content-type': 'application/json',
       'User-Agent': ""
     };
 
-    // Make the API call without a body
     const response = await axios.get(apiUrl, {}, { headers });
     console.log('API response:', response.data);
-    // Send the third-party API's response back to the client
     res.status(response.status).json(response.data);
   } catch (error) {
     console.error('Error calling third-party API:', error.message);
@@ -97,6 +101,20 @@ app.get('/get-credit-report', async (req, res) => {
     } else {
       res.status(500).json({ error: 'Internal Server Error', message: error.message });
     }
+  }
+});
+
+app.post('/save-customer-details', async(req, res) => {
+  const customerDetails = req.body; 
+  
+  try {
+    const docRef = db.collection('Users').doc(customerDetails.body.mobile); 
+    await docRef.set(customerDetails); 
+    console.log("Check this: ",customerDetails);
+    res.status(200).send({ message: 'Document created successfully' });
+  } catch (error) {
+    console.error('Error creating document:', error);
+    res.status(500).send({ error: 'Failed to create document' });
   }
 });
 
