@@ -1,8 +1,10 @@
 const express = require('express');
 const Razorpay = require('razorpay');
 const cors = require('cors');
+const fs = require('fs');
 const bodyParser = require('body-parser');
-require('dotenv').config(); // Load environment variables
+require('dotenv').config(); 
+const axios = require('axios');// Load environment variables
 
 // Validate environment variables
 if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
@@ -65,6 +67,65 @@ app.post('/verify-payment', async (req, res) => {
   }
 });
 
+
+app.get('/get-credit-report', async (req, res) => {
+  try {
+    // API URL
+    const apiUrl = 'https://eb964186-d3c2-48d5-95a4-895797265b4b.mock.pstmn.io/get';
+
+    // API headers
+    const headers = {
+      token: "",
+      accept: 'application/json',
+      authorisedkey: "",
+      'content-type': 'application/json',
+      'User-Agent': ""
+    };
+
+    // Make the API call without a body
+    const response = await axios.get(apiUrl, {}, { headers });
+    console.log('API response:', response.data);
+    // Send the third-party API's response back to the client
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    console.error('Error calling third-party API:', error.message);
+    if (error.response) {
+      res.status(error.response.status).json({
+        error: error.response.data,
+        message: error.message
+      });
+    } else {
+      res.status(500).json({ error: 'Internal Server Error', message: error.message });
+    }
+  }
+});
+
+app.post('/save-report-json', (req, res) => {
+  const newData = req.body; 
+
+  // Path to your JSON file
+  const filePath = './one.json';
+
+  // Write the new data to the file
+  fs.writeFile(filePath, JSON.stringify(newData, null, 2), 'utf8', (err) => {
+    if (err) {
+      return res.status(500).json({ message: 'Error writing file', error: err });
+    }
+    res.status(200).json({ message: 'File replaced successfully', data: newData });
+  });
+});
+
+app.get('/get-report-json', (req, res) => {
+  fs.readFile('one.json', 'utf8', (err, data) => {
+      if (err) {
+          console.error('Error reading JSON file:', err);
+          return res.status(500).json({ error: 'Failed to load credit report' });
+      }
+      res.json(JSON.parse(data));
+  });
+});
+
 // Start the server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
+
