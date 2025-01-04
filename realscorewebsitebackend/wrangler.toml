@@ -1,7 +1,0 @@
-# Top-level configuration
-name = "realscorewebsitebackend"
-main = "src/app.js"
-compatibility_date = "2025-07-12"
-
-workers_dev = false
-route = { pattern = "/*" }

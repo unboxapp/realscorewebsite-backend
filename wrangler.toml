@@ -1,8 +1,0 @@
-# Top-level configuration
-name = "real_score_backend"
-main = "src/app.js"
-account_id="ebca170008cc22188e58b7652dd99178"
-compatibility_flags=[]
-
-workers_dev = true
-route = { pattern = "./" }
