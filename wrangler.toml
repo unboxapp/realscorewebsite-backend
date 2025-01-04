@@ -1,7 +1,8 @@
 # Top-level configuration
 name = "real_score_backend"
 main = "src/app.js"
-compatibility_date = "2025-07-12"
+account_id="ebca170008cc22188e58b7652dd99178"
+compatibility_flags=[]
 
-workers_dev = false
-route = { pattern = "/*" }
+workers_dev = true
+route = { pattern = "./" }
