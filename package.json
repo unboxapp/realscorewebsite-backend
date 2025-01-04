@@ -18,8 +18,5 @@
     "firebase-admin": "^13.0.2",
     "fs": "^0.0.1-security",
     "razorpay": "^2.9.5"
-  },
-  "devDependencies": {
-    "wrangler": "^3.99.0"
   }
 }
